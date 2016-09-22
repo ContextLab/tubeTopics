@@ -13,14 +13,17 @@ module.exports = tubeTopics;
 
 function tubeTopics(options) {
     // optional params
-    options = options || {}
+    options = options || {};
 
     // private data
     var audioOutputPath = opt.audioOutputPath || path.resolve(__dirname, 'sound.mp4');
 
     function getTranscripts(urls, options) {
         options = options || {};
-        console.log('link', urls)
+
+        if (typeof urls === 'string'){
+          urls = [urls]
+        };
 
         var audioOutput = path.resolve(__dirname, 'sound.mp4');
 
@@ -92,9 +95,5 @@ function tubeTopics(options) {
         getTopicsFromTranscripts: getTopicsFromTranscripts,
         getTopicsFromURLS: getTopicsFromURLS
     }
-
-    // private functions
-    function parse() {
-        ...
-    }
+    
 }
