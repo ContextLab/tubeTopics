@@ -3,4 +3,4 @@ Creates a topic model from a YouTube video by transcribing audio track with goog
 
 ## To use
 1. `npm install`
-2. node example/examples.js
+2. `node example/examples.js`
