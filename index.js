@@ -9,23 +9,45 @@ var speech = google.speech('v1beta1').speech;
 
 var tubeTopics = function() {
 
-    function loadModel() {
-        return new Promise(function(resolve, reject) {
-            fs.readFile('model/topicModelDict.json', 'utf8', function(err, data) {
-                if (err) throw err;
-                model = JSON.parse(data);
-                console.log('Using default model...')
-                resolve(model)
+    ////////////////////////////////////////////////////////////////////////////
+    // VARIABLES ///////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+
+    // loads in when the package is initialized
+    var model = loadModel()
+
+    ////////////////////////////////////////////////////////////////////////////
+    // PUBLIC FUNCTIONS ////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+
+    // function to get topic weights from a youtube url
+    function getTopicWeightsFromURL(url) {
+        return new Promise((resolve, reject) => {
+            downloadAudio(url).then((audio) => {
+                segmentAndProcessAudio(audio).then((processedAudio) => {
+                    getTranscripts(processedAudio).then((transcripts) => {
+                        computeTopicWeights(transcripts, model).then((result) => {
+                            resolve(result)
+                        })
+                    })
+                })
             })
         })
     };
-    var model = loadModel()
 
-    function getTranscript(url) {
+    ////////////////////////////////////////////////////////////////////////////
+    // PRIVATE FUNCTIONS ///////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////
+    // DOWNLOAD AUDIO CODE /////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+
+    // function to download audio from a youtube link
+    function downloadAudio(url) {
         return new Promise(function(resolve, reject) {
             var audioOutput = path.resolve(__dirname, 'sound.mp4');
-            var videoTranscripts = []
-            console.log('Downloading video...')
+            console.log('Downloading video and filtering the audio...')
             ytdl(url, {
                     filter: function(f) {
                         return f.container === 'mp4' && !f.encoding;
@@ -33,27 +55,59 @@ var tubeTopics = function() {
                 })
                 .pipe(fs.createWriteStream(audioOutput))
                 .on('finish', function() {
-                    console.log('Finished downloading. Decoding transcript...')
-                    recognize(audioOutput, console.log).then(function(transcript) {
-                        resolve(transcript)
-                    });
-
+                    console.log('Download finished.')
+                    resolve(audioOutput)
                 })
-
         })
     };
 
-    function getModelFromURL(url) {
+    // function to segment and process audio in preparation to send to google for decoding
+    function segmentAndProcessAudio(inputFile) {
+        console.log('Processing audio...', inputFile)
         return new Promise(function(resolve, reject) {
-            getTranscript(url).then(function(transcript) {
-                computeTopicModel(transcript, model).then(function(result) {
-                    resolve(result)
+            ffmpeg()
+                .input(inputFile)
+                .seekInput(30)
+                .format('flac')
+                .audioFrequency(16000)
+                .duration(30)
+                .audioChannels(1)
+                .save(inputFile + '.flac')
+                .on('end', function() {
+                    // fs.readFile(inputFile + '.flac', function(err, audioFile) {
+                    //     if (err) {
+                    //         return callback(err);
+                    //     }
+                        console.log('Done processing audio.')
+                        resolve(inputFile + '.flac')
+                    // })
                 })
+        })
+    };
+
+    ////////////////////////////////////////////////////////////////////////////
+    // TOPIC MODEL CODE ////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+
+    // load in the topic model
+
+    function loadModel(modelPath) {
+        console.log('Loading in topic model...')
+        var modelPath = modelPath || 'model/topicModelDict.json';
+        return new Promise(function(resolve, reject) {
+            fs.readFile(modelPath, 'utf8', function(err, data) {
+                if (err) throw err;
+                model = JSON.parse(data);
+                console.log('Model loaded successfully...')
+                resolve(model)
             })
         })
     };
 
-    function computeTopicModel(words, model) {
+    // compute weights for the transcript
+
+    function computeTopicWeights(words, model) {
+        console.log("Computing topic weights...")
         return new Promise(function(resolve, reject) {
             var topicsByWords = words.map(function(word) {
                     return model[word]
@@ -76,60 +130,17 @@ var tubeTopics = function() {
                         })
                 })
                 .map(function(sums, idx) {
-                    return math.exp(a[idx] + math.log(sums))/topicsByWordsMtx['_data'].length
+                    return math.exp(a[idx] + math.log(sums)) / topicsByWordsMtx['_data'].length
                 })
             resolve(topicVec)
         })
     }
 
-    // GOOGLE SPEECH CODE
+    ////////////////////////////////////////////////////////////////////////////
+    // GOOGLE SPEECH CODE //////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
 
-    function getAuthClient(callback) {
-        google.auth.getApplicationDefault(function(err, authClient) {
-            if (err) {
-                return callback(err);
-            }
-            if (authClient.createScopedRequired && authClient.createScopedRequired()) {
-                authClient = authClient.createScoped([
-                    'https://www.googleapis.com/auth/cloud-platform'
-                ]);
-            }
-
-            return callback(null, authClient);
-        });
-    }
-
-    function prepareRequest(inputFile, callback) {
-        ffmpeg()
-            .input(inputFile)
-            .seekInput('1:00')
-            .format('flac')
-            .audioFrequency(16000)
-            .duration('0:0:30.00')
-            .audioChannels(1)
-            .save(inputFile + '.flac')
-            .on('end', function() {
-                fs.readFile(inputFile + '.flac', function(err, audioFile) {
-                    if (err) {
-                        return callback(err);
-                    }
-                    console.log('Got audio file!');
-                    var encoded = new Buffer(audioFile).toString('base64');
-                    var payload = {
-                        config: {
-                            encoding: 'FLAC',
-                            sampleRate: 16000
-                        },
-                        audio: {
-                            content: encoded
-                        }
-                    };
-                    return callback(null, payload);
-                })
-            })
-    };
-
-    function recognize(inputFile, callback) {
+    function getTranscripts(inputFile, callback) {
         return new Promise(function(resolve, reject) {
             var requestPayload;
             async.waterfall([
@@ -177,9 +188,47 @@ var tubeTopics = function() {
         })
     };
 
-    // API/data for end-user
+    function getAuthClient(callback) {
+        google.auth.getApplicationDefault(function(err, authClient) {
+            if (err) {
+                return callback(err);
+            }
+            if (authClient.createScopedRequired && authClient.createScopedRequired()) {
+                authClient = authClient.createScoped([
+                    'https://www.googleapis.com/auth/cloud-platform'
+                ]);
+            }
+
+            return callback(null, authClient);
+        });
+    }
+
+    function prepareRequest(inputFile, callback) {
+                fs.readFile(inputFile, function(err, audioFile) {
+                    if (err) {
+                        return callback(err);
+                    }
+                    console.log('Got audio file!');
+                    var encoded = new Buffer(audioFile).toString('base64');
+                    var payload = {
+                        config: {
+                            encoding: 'FLAC',
+                            sampleRate: 16000
+                        },
+                        audio: {
+                            content: encoded
+                        }
+                    };
+                    return callback(null, payload);
+                })
+    };
+
+    ////////////////////////////////////////////////////////////////////////////
+    // END USER API  ///////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+
     return {
-        getModelFromURL: getModelFromURL,
+        getTopicWeightsFromURL: getTopicWeightsFromURL,
     }
 }
 
