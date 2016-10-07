@@ -99,7 +99,7 @@ var tubeTopics = function() {
         });
     }
 
-    function prepareRequest(inputFile, options, callback) {
+    function prepareRequest(inputFile, callback) {
         ffmpeg()
             .input(inputFile)
             .seekInput('1:00')
