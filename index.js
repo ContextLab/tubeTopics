@@ -63,7 +63,7 @@ var tubeTopics = function() {
 
     // function to segment and process audio in preparation to send to google for decoding
     function segmentAndProcessAudio(inputFile) {
-        console.log('Processing audio...', inputFile)
+        console.log('Processing audio...')
         return new Promise(function(resolve, reject) {
             ffmpeg()
                 .input(inputFile)
@@ -74,13 +74,8 @@ var tubeTopics = function() {
                 .audioChannels(1)
                 .save(inputFile + '.flac')
                 .on('end', function() {
-                    // fs.readFile(inputFile + '.flac', function(err, audioFile) {
-                    //     if (err) {
-                    //         return callback(err);
-                    //     }
-                        console.log('Done processing audio.')
-                        resolve(inputFile + '.flac')
-                    // })
+                    console.log('Done processing audio.')
+                    resolve(inputFile + '.flac')
                 })
         })
     };
@@ -204,23 +199,22 @@ var tubeTopics = function() {
     }
 
     function prepareRequest(inputFile, callback) {
-                fs.readFile(inputFile, function(err, audioFile) {
-                    if (err) {
-                        return callback(err);
-                    }
-                    console.log('Got audio file!');
-                    var encoded = new Buffer(audioFile).toString('base64');
-                    var payload = {
-                        config: {
-                            encoding: 'FLAC',
-                            sampleRate: 16000
-                        },
-                        audio: {
-                            content: encoded
-                        }
-                    };
-                    return callback(null, payload);
-                })
+        fs.readFile(inputFile, function(err, audioFile) {
+            if (err) {
+                return callback(err);
+            }
+            var encoded = new Buffer(audioFile).toString('base64');
+            var payload = {
+                config: {
+                    encoding: 'FLAC',
+                    sampleRate: 16000
+                },
+                audio: {
+                    content: encoded
+                }
+            };
+            return callback(null, payload);
+        })
     };
 
     ////////////////////////////////////////////////////////////////////////////
