@@ -18,8 +18,10 @@
   "homepage": "https://github.com/andrewheusser/youtube-lda#readme",
   "dependencies": {
     "fs": "0.0.1-security",
+    "googleapis": "^14.0.0",
     "gspeech-api": "^1.0.0",
     "lda": "^0.1.8",
+    "mathjs": "^3.5.3",
     "path": "^0.12.7",
     "ytdl-core": "^0.7.17"
   }
