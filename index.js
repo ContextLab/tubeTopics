@@ -15,7 +15,7 @@ var tubeTopics = function() {
     ////////////////////////////////////////////////////////////////////////////
 
     // loads in when the package is initialized
-    var model = loadModel()
+    model = loadModel()
 
     ////////////////////////////////////////////////////////////////////////////
     // PUBLIC FUNCTIONS ////////////////////////////////////////////////////////
@@ -72,7 +72,7 @@ var tubeTopics = function() {
     ////////////////////////////////////////////////////////////////////////////
 
     function getAudioSegmentParams(file) {
-      console.log('Getting audio segment params...')
+        console.log('Getting audio segment params...')
         return new Promise(function(resolve, reject) {
             ffmpeg.ffprobe(file, function(err, info) {
                 var audioSegments = []
@@ -115,10 +115,9 @@ var tubeTopics = function() {
         })
     };
 
-    function processSegment(data, onfinish) {
-      console.log('Processing segment: ', data.start)
-      console.log(file)
-        return new Promise(function(resolve, reject) {
+    function processSegment(data, callback) {
+        console.log('Processing segment: ', data.start)
+        console.log(file)
             /*
              * Processes a segment of audio from file by using ffmpeg to convert
              * a segment of specified start time and duration, save it as a temporary .flac file
@@ -140,8 +139,8 @@ var tubeTopics = function() {
                     console.log('Finished processing: ', data.start)
                     console.log('Getting transcript')
                     getTranscript(tmpFile).then((transcript) => {
-                        computeTopicWeights(transcript,model).then((topicWeights) => {
-                            resolve(topicWeights)
+                        computeTopicWeights(transcript, model).then((topicWeights) => {
+                            callback(null,topicWeights)
                         })
                     })
                 })
@@ -152,30 +151,30 @@ var tubeTopics = function() {
                 .audioFrequency(16000)
                 .toFormat('flac')
                 .run();
-        })
     }
 
     function getTopics(audioSegments) {
         console.log('Getting topics...')
         return new Promise(function(resolve, reject) {
-        var limitConcurrent = 20
-        async.mapLimit(audioSegments, limitConcurrent, processSegment, function(err, results) {
-            // After all transcripts have been returned, process them
-            // if (err)
-            //     callback(err);
-            // var timedTranscript = results.sort(function(a, b) {
-            //     if (a.start < b.start) return -1;
-            //     if (a.start > b.start) return 1;
-            //     return 0;
-            // });
-            resolve(results)
-            // resolve(timedTranscript)
-                // callback(null, {
-                //     'timedTranscript': timedTranscript,
-                //     'transcript': null
+            var limitConcurrent = 20
+            async.mapLimit(audioSegments, limitConcurrent, processSegment, function(err, results) {
+                // After all transcripts have been returned, process them
+                // if (err)
+                //     callback(err);
+                // var timedTranscript = results.sort(function(a, b) {
+                //     if (a.start < b.start) return -1;
+                //     if (a.start > b.start) return 1;
+                //     return 0;
                 // });
-        });
-      })
+                console.log('RETURNING RESULTS!!!!!!!')
+                resolve(results)
+                    // resolve(timedTranscript)
+                    // callback(null, {
+                    //     'timedTranscript': timedTranscript,
+                    //     'transcript': null
+                    // });
+            });
+        })
     };
 
     // function to segment and process audio in preparation to send to google for decoding
