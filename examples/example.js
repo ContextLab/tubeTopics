@@ -1,7 +1,13 @@
+var fs = require('fs');
 var tubeTopics = require('../index.js');
 
 tubeTopics.getTopicWeightsFromURL('https://www.youtube.com/watch?v=kpCJyQ2usJ4&list=PL1847B1B2268562C7').then(function(result){
-  console.log(result)
+  var jsonData = JSON.stringify(result);
+  fs.writeFile("test.txt", jsonData, function(err) {
+    if(err) {
+        return console.log(err);
+    }
+});
 })
 
 // tubeTopics.getAudioSegmentParams('/Applications/packages/tubeTopics/sound.mp4').then((segments)=>{

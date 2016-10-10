@@ -140,7 +140,10 @@ var tubeTopics = function() {
                     console.log('Getting transcript')
                     getTranscript(tmpFile).then((transcript) => {
                         computeTopicWeights(transcript, model).then((topicWeights) => {
-                            callback(null,topicWeights)
+                            callback(null,{'weights': topicWeights,
+                                           'start': start,
+                                           'dur': dur
+                            })
                         })
                     })
                 })
@@ -159,20 +162,14 @@ var tubeTopics = function() {
             var limitConcurrent = 20
             async.mapLimit(audioSegments, limitConcurrent, processSegment, function(err, results) {
                 // After all transcripts have been returned, process them
-                // if (err)
-                //     callback(err);
-                // var timedTranscript = results.sort(function(a, b) {
-                //     if (a.start < b.start) return -1;
-                //     if (a.start > b.start) return 1;
-                //     return 0;
-                // });
-                console.log('RETURNING RESULTS!!!!!!!')
-                resolve(results)
-                    // resolve(timedTranscript)
-                    // callback(null, {
-                    //     'timedTranscript': timedTranscript,
-                    //     'transcript': null
-                    // });
+                if (err)
+                    callback(err);
+                var timedTopics = results.sort(function(a, b) {
+                    if (a.start < b.start) return -1;
+                    if (a.start > b.start) return 1;
+                    return 0;
+                });
+                resolve(timedTopics)
             });
         })
     };
@@ -241,7 +238,7 @@ var tubeTopics = function() {
                         })
                 })
                 .map(function(sums, idx) {
-                    return math.exp(a[idx] + math.log(sums)) / topicsByWordsMtx['_data'].length
+                    return (math.exp(a[idx] + math.log(sums)) / topicsByWordsMtx['_data'].length).toFixed(5)
                 })
             resolve(topicVec)
         })
