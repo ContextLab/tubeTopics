@@ -2,6 +2,7 @@ var fs = require('fs')
 var path = require('path')
 var ytdl = require('ytdl-core');
 var ffmpeg = require('fluent-ffmpeg');
+var temp = require("temp").track();
 var async = require('async');
 var math = require('mathjs')
 var google = require('googleapis');
@@ -23,12 +24,10 @@ var tubeTopics = function() {
     // function to get topic weights from a youtube url
     function getTopicWeightsFromURL(url) {
         return new Promise((resolve, reject) => {
-            downloadAudio(url).then((audio) => {
-                segmentAndProcessAudio(audio).then((processedAudio) => {
-                    getTranscripts(processedAudio).then((transcripts) => {
-                        computeTopicWeights(transcripts, model).then((result) => {
-                            resolve(result)
-                        })
+            downloadAudio(url).then((audioFilePath) => {
+                getAudioSegmentParams(audioFilePath).then((segmentParams) => {
+                    getTopics(segmentParams).then((result) => {
+                        resolve(result)
                     })
                 })
             })
@@ -39,6 +38,12 @@ var tubeTopics = function() {
     // PRIVATE FUNCTIONS ///////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
 
+    // function getTopicsForSegments(audioSegmentParams) {
+    //   return new Promise((resolve, reject) => {
+    //
+    //   })
+    // }
+
     ////////////////////////////////////////////////////////////////////////////
     // DOWNLOAD AUDIO CODE /////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -46,39 +51,151 @@ var tubeTopics = function() {
     // function to download audio from a youtube link
     function downloadAudio(url) {
         return new Promise(function(resolve, reject) {
-            var audioOutput = path.resolve(__dirname, 'sound.mp4');
+            var audioOutputPath = path.resolve(__dirname, 'sound.mp4');
             console.log('Downloading video and filtering the audio...')
             ytdl(url, {
                     filter: function(f) {
                         return f.container === 'mp4' && !f.encoding;
                     }
                 })
-                .pipe(fs.createWriteStream(audioOutput))
+                .pipe(fs.createWriteStream(audioOutputPath))
                 .on('finish', function() {
                     console.log('Download finished.')
-                    resolve(audioOutput)
+                    file = audioOutputPath;
+                    resolve(audioOutputPath)
                 })
         })
     };
 
-    // function to segment and process audio in preparation to send to google for decoding
-    function segmentAndProcessAudio(inputFile) {
-        console.log('Processing audio...')
+    ////////////////////////////////////////////////////////////////////////////
+    // PROCESS AUDIO CODE //////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+
+    function getAudioSegmentParams(file) {
+      console.log('Getting audio segment params...')
         return new Promise(function(resolve, reject) {
-            ffmpeg()
-                .input(inputFile)
-                .seekInput(30)
-                .format('flac')
-                .audioFrequency(16000)
-                .duration(30)
-                .audioChannels(1)
-                .save(inputFile + '.flac')
-                .on('end', function() {
-                    console.log('Done processing audio.')
-                    resolve(inputFile + '.flac')
-                })
+            ffmpeg.ffprobe(file, function(err, info) {
+                var audioSegments = []
+                var totalDuration = info.format.duration;
+                var segments = false
+                maxDuration = 15
+                if (segments) {
+                    for (var i = 0; i < segments.length; i++) {
+                        var duration = (i == segments.length - 1) ? totalDuration - segments[i] : segments[i + 1] - segments[i];
+                        if (duration < 0) {
+                            callback(new Error("segments must be a sorted array of start times, \
+        each less than the total length of your audio"));
+                        }
+                        var curStart = segments[i];
+                        while (duration > maxDuration + .001) {
+                            audioSegments.push({
+                                'start': curStart,
+                                'duration': maxDuration
+                            });
+                            duration -= maxDuration;
+                            curStart += maxDuration;
+                        }
+                        audioSegments.push({
+                            'start': curStart,
+                            'duration': duration
+                        });
+                    }
+                } else {
+                    var numSegments = Math.ceil(totalDuration / maxDuration);
+                    for (var i = 0; i < numSegments; i++) {
+                        audioSegments.push({
+                            'start': maxDuration * i,
+                            'duration': maxDuration
+                        });
+                    }
+                }
+                console.log('Returning audio segment params')
+                resolve(audioSegments)
+            })
         })
     };
+
+    function processSegment(data, onfinish) {
+      console.log('Processing segment: ', data.start)
+      console.log(file)
+        return new Promise(function(resolve, reject) {
+            /*
+             * Processes a segment of audio from file by using ffmpeg to convert
+             * a segment of specified start time and duration, save it as a temporary .flac file
+             * and send it to getTranscriptFromServer
+             */
+
+            var start = data.start;
+            var dur = data.duration;
+            var tmpFile = temp.path({
+                suffix: '.flac'
+            });
+
+            // Convert segment of audio file into .flac file
+            ffmpeg()
+                .on('error', function(err) {
+                    onfinish(err);
+                })
+                .on('end', function() {
+                    console.log('Finished processing: ', data.start)
+                    console.log('Getting transcript')
+                    getTranscript(tmpFile).then((transcript) => {
+                        computeTopicWeights(transcript,model).then((topicWeights) => {
+                            resolve(topicWeights)
+                        })
+                    })
+                })
+                .input(file)
+                .setStartTime(start)
+                .duration(dur)
+                .output(tmpFile)
+                .audioFrequency(16000)
+                .toFormat('flac')
+                .run();
+        })
+    }
+
+    function getTopics(audioSegments) {
+        console.log('Getting topics...')
+        return new Promise(function(resolve, reject) {
+        var limitConcurrent = 20
+        async.mapLimit(audioSegments, limitConcurrent, processSegment, function(err, results) {
+            // After all transcripts have been returned, process them
+            // if (err)
+            //     callback(err);
+            // var timedTranscript = results.sort(function(a, b) {
+            //     if (a.start < b.start) return -1;
+            //     if (a.start > b.start) return 1;
+            //     return 0;
+            // });
+            resolve(results)
+            // resolve(timedTranscript)
+                // callback(null, {
+                //     'timedTranscript': timedTranscript,
+                //     'transcript': null
+                // });
+        });
+      })
+    };
+
+    // function to segment and process audio in preparation to send to google for decoding
+    // function segmentAndProcessAudio(inputFile) {
+    //     console.log('Processing audio...')
+    //     return new Promise(function(resolve, reject) {
+    //         ffmpeg()
+    //             .input(inputFile)
+    //             .seekInput(30)
+    //             .format('flac')
+    //             .audioFrequency(16000)
+    //             .duration(30)
+    //             .audioChannels(1)
+    //             .save(inputFile + '.flac')
+    //             .on('end', function() {
+    //                 console.log('Done processing audio.')
+    //                 resolve(inputFile + '.flac')
+    //             })
+    //     })
+    // };
 
     ////////////////////////////////////////////////////////////////////////////
     // TOPIC MODEL CODE ////////////////////////////////////////////////////////
@@ -135,7 +252,7 @@ var tubeTopics = function() {
     // GOOGLE SPEECH CODE //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
 
-    function getTranscripts(inputFile, callback) {
+    function getTranscript(inputFile, callback) {
         return new Promise(function(resolve, reject) {
             var requestPayload;
             async.waterfall([
@@ -223,6 +340,7 @@ var tubeTopics = function() {
 
     return {
         getTopicWeightsFromURL: getTopicWeightsFromURL,
+        getAudioSegmentParams: getAudioSegmentParams,
     }
 }
 
