@@ -38,12 +38,6 @@ var tubeTopics = function() {
     // PRIVATE FUNCTIONS ///////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
 
-    // function getTopicsForSegments(audioSegmentParams) {
-    //   return new Promise((resolve, reject) => {
-    //
-    //   })
-    // }
-
     ////////////////////////////////////////////////////////////////////////////
     // DOWNLOAD AUDIO CODE /////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -139,10 +133,11 @@ var tubeTopics = function() {
                     console.log('Finished processing: ', data.start)
                     console.log('Getting transcript')
                     getTranscript(tmpFile).then((transcript) => {
-                        computeTopicWeights(transcript, model).then((topicWeights) => {
-                            callback(null,{'weights': topicWeights,
+                        computeTopicWeights(transcript, model).then((results) => {
+                            callback(null,{'weights': results.weights,
                                            'start': start,
-                                           'dur': dur
+                                           'dur': dur,
+                                           'transcript': results.transcript
                             })
                         })
                     })
@@ -152,6 +147,7 @@ var tubeTopics = function() {
                 .duration(dur)
                 .output(tmpFile)
                 .audioFrequency(16000)
+                .audioChannels(1)
                 .toFormat('flac')
                 .run();
     }
@@ -173,25 +169,6 @@ var tubeTopics = function() {
             });
         })
     };
-
-    // function to segment and process audio in preparation to send to google for decoding
-    // function segmentAndProcessAudio(inputFile) {
-    //     console.log('Processing audio...')
-    //     return new Promise(function(resolve, reject) {
-    //         ffmpeg()
-    //             .input(inputFile)
-    //             .seekInput(30)
-    //             .format('flac')
-    //             .audioFrequency(16000)
-    //             .duration(30)
-    //             .audioChannels(1)
-    //             .save(inputFile + '.flac')
-    //             .on('end', function() {
-    //                 console.log('Done processing audio.')
-    //                 resolve(inputFile + '.flac')
-    //             })
-    //     })
-    // };
 
     ////////////////////////////////////////////////////////////////////////////
     // TOPIC MODEL CODE ////////////////////////////////////////////////////////
@@ -238,9 +215,9 @@ var tubeTopics = function() {
                         })
                 })
                 .map(function(sums, idx) {
-                    return (math.exp(a[idx] + math.log(sums)) / topicsByWordsMtx['_data'].length).toFixed(5)
+                    return (math.exp(a[idx] + math.log(sums)) / topicsByWordsMtx['_data'].length).toFixed(8)
                 })
-            resolve(topicVec)
+            resolve({weights: topicVec, transcript: words})
         })
     }
 
@@ -266,6 +243,7 @@ var tubeTopics = function() {
                         resource: requestPayload
                     }, function(err, result) {
                         if (err) {
+                            console.log(err)
                             return cb(err);
                         }
                         console.log('result:', JSON.stringify(result, null, 2));
@@ -289,7 +267,7 @@ var tubeTopics = function() {
                             console.log("The file was saved!");
                         });
 
-                        cb(null, result);
+                        cb(null, words);
                     });
                 }
             ], callback);
