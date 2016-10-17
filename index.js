@@ -35,8 +35,10 @@ var tubeTopics = function() {
                   })
               } else {
                   getYoutubeTranscript(result).then(transcript => {
-                      var x = parseYoutubeTranscript(transcript)
-                      console.log(x)
+                      var reslicedSegments = parseYoutubeTranscript(transcript)
+                      computeTopicsForYoutubeTranscripts(reslicedSegments).then(result=>{
+                      resolve(result)
+                    })
                   })
               }
           })
@@ -388,18 +390,6 @@ var tubeTopics = function() {
         })
     };
 
-    // function prepareYoutubeRequest(captionIdList) {
-    //     var transcriptId = captionIdList.items.filter((transcript) => {
-    //         return transcript.snippet.language == 'en' && transcript.snippet.trackKind == 'standard'
-    //     })[0].id
-    //
-    //     var payload = {
-    //         id: transcriptId,
-    //         tlang: 'en'
-    //     }
-    //     return payload
-    // }
-
     function getYoutubeTranscript(captionIdList) {
         return new Promise((resolve, reject) => {
             getYoutubeAuthClient().then((authClient) => {
@@ -457,7 +447,10 @@ var tubeTopics = function() {
                 inRangeObjects.forEach(item => {
                     segment.text = segment.text.concat(item.text.join(' '))
                 });
-                segment.text = segment.text.join(' ')
+                segment.text = segment.text.join(' ').split(' ').map(word=>{
+                  return word.toUpperCase()
+                })
+                // console.log(segment.text)
             });
             // console.log(reslicedSegments)
             return reslicedSegments
@@ -508,6 +501,17 @@ var tubeTopics = function() {
                 !isNaN(parseInt(value, 10));
         }
     };
+
+    function computeTopicsForYoutubeTranscripts(reslicedSegments) {
+        return new Promise((resolve, reject) => {
+            Promise.all(reslicedSegments.map(segment => {
+                return computeTopicWeights(segment.text, model)
+            })).then(result => {
+                resolve(result)
+            })
+        })
+    };
+
 
     ////////////////////////////////////////////////////////////////////////////
     // END USER API  ///////////////////////////////////////////////////////////
