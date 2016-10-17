@@ -5,7 +5,7 @@ Creates a topic model time course [using Latent Dirichlet Allocation (LDA)] from
 
 ## To set up google APIs
 
-First, set up a Google Cloud ![account](https://cloud.google.com/)
+First, set up a Google Cloud [account](https://cloud.google.com/)
 
 Next, create a new project and within the project, enable the Youtube API and the Google Speech API. Create a JSON key for the project and download it.
 
