@@ -23,17 +23,24 @@ var tubeTopics = function() {
 
     // function to get topic weights from a youtube url
     function getTopicWeightsFromURL(url) {
-        return new Promise((resolve, reject) => {
-            downloadAudio(url).then((audioFilePath) => {
-                getAudioSegmentParams(audioFilePath).then((segmentParams) => {
-                    getTopics(segmentParams).then((result) => {
-                        resolve(result)
-                    })
-                })
-            })
-        })
-    };
-
+      return new Promise((resolve, reject) => {
+          checkForTranscriptOnYoutube(url).then(result => {
+              if (result == null) {
+                  downloadAudio(url).then((audioFilePath) => {
+                      getAudioSegmentParams(audioFilePath).then((segmentParams) => {
+                          getTopics(segmentParams).then((result) => {
+                              resolve(result)
+                          })
+                      })
+                  })
+              } else {
+                  getYoutubeTranscript(result).then(transcript => {
+                      parseYoutubeTranscript(transcript)
+                  })
+              }
+          })
+      })
+  };
     ////////////////////////////////////////////////////////////////////////////
     // PRIVATE FUNCTIONS ///////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -392,7 +399,6 @@ var tubeTopics = function() {
     //     return payload
     // }
 
-
     function getYoutubeTranscript(captionIdList) {
         return new Promise((resolve, reject) => {
             getYoutubeAuthClient().then((authClient) => {
@@ -413,11 +419,92 @@ var tubeTopics = function() {
                         console.error('Error: ' + err);
                     }
                     if (data) {
-                        resolve(data.split('\n'))
+                        resolve(data)
                     }
                 })
             })
         })
+    };
+
+    function parseYoutubeTranscript(data) {
+
+        var parsedObjects = parseToObjects(data);
+        return resliceTranscript(parsedObjects, 15)
+
+        // private FUNCTIONS
+        function resliceTranscript(parsedObjects, seglen) {
+            var lastTimePoint = parseTime(parsedObjects[parsedObjects.length-1].time)[1]
+            var segments = Array.apply(null, Array(Math.ceil(lastTimePoint/seglen)+1)).map(function (_, i) {return i*seglen;});
+
+            var reslicedSegments = segments.map((segment, idx) => {
+                return {
+                    start: segment,
+                    dur: seglen,
+                    text: []
+                }
+            });
+            
+            reslicedSegments.forEach((segment, idx) => {
+                // if the segment falls within the resliced segment range or if the segment falls mostly within the resliced segment range
+                var inRangeObjects = parsedObjects.filter(item => {
+                    return (parseTime(item.time)[0] >= segment.start && parseTime(item.time)[1] <= segment.start + segment.dur) || (parseTime(item.time)[0] >= segment.start && parseTime(item.time)[1] - (segment.start + segment.dur) <= (parseTime(item.time)[1] - parseTime(item.time)[0]) / 2)
+                });
+                // console.log(inRangeObjects)
+
+                inRangeObjects.forEach(item => {
+                    segment.text = segment.text.concat(item.text.join(' '))
+                });
+                segment.text = segment.text.join(' ')
+            });
+            console.log(reslicedSegments)
+
+            function parseTime(date) {
+                var splitDate = date.split(' --> ')
+                var start = toSeconds(splitDate[0])
+                var end = toSeconds(splitDate[1])
+
+                return [start, end]
+
+                function toSeconds(datestr) {
+                    var datespl = datestr.split(':')
+                    var hourToSec = parseInt(datespl[0]) * 3600
+                    var minToSec = parseInt(datespl[1]) * 60
+                    var seconds = datespl[2].split(',')[0]
+                    return parseInt(hourToSec) + parseInt(minToSec) + parseInt(seconds)
+                }
+            }
+
+        }
+
+        function parseToObjects(data) {
+            var parsedTranscript = []
+            data.split('\n').forEach((item, idx, array) => {
+                if (isInt(item)) {
+                    snippet = {}
+                    snippet.id = item
+                    snippet.time = array[idx + 1]
+                    snippet.text = [];
+                    counter = 2
+                    while (!isInt(array[counter + idx]) && counter + idx <= array.length) {
+                        snippet.text.push(array[counter + idx])
+                        counter += 1
+                        if (counter > 5) {
+                            break
+                        }
+                    }
+                    // console.log(snippet)
+                    parsedTranscript.push(snippet)
+                    counter = 2
+                }
+            })
+            return parsedTranscript
+
+            function isInt(value) {
+                return !isNaN(value) &&
+                    parseInt(Number(value)) == value &&
+                    !isNaN(parseInt(value, 10));
+            }
+        };
     };
 
     ////////////////////////////////////////////////////////////////////////////
@@ -429,6 +516,7 @@ var tubeTopics = function() {
         getAudioSegmentParams: getAudioSegmentParams,
         checkForTranscriptOnYoutube: checkForTranscriptOnYoutube,
         getYoutubeTranscript: getYoutubeTranscript,
+        parseYoutubeTranscript: parseYoutubeTranscript,
     }
 }
 

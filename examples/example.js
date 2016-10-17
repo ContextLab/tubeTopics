@@ -1,20 +1,31 @@
 var fs = require('fs');
 var tubeTopics = require('../index.js');
 
-tubeTopics.checkForTranscriptOnYoutube('https://www.youtube.com/watch?v=52ZlXsFJULI').then((result) => {
-    tubeTopics.getYoutubeTranscript(result).then(result2 => {
-        console.log(result2)
+tubeTopics.getTopicWeightsFromURL('https://www.youtube.com/watch?v=52ZlXsFJULI').then(function(result) {
+    console.log(result)
+    var jsonData = JSON.stringify(result);
+    fs.writeFile("transcript.txt", jsonData, function(err) {
+        if (err) {
+            return console.log(err);
+        }
     })
-})
+});
 
-// tubeTopics.getTopicWeightsFromURL('https://www.youtube.com/watch?v=52ZlXsFJULI').then(function(result){
-//   var jsonData = JSON.stringify(result);
-//   fs.writeFile("fractions.txt", jsonData, function(err) {
-//     if(err) {
-//         return console.log(err);
-//     }
-// });
+// tubeTopics.checkForTranscriptOnYoutube('https://www.youtube.com/watch?v=52ZlXsFJULI').then((result) => {
+//     tubeTopics.getYoutubeTranscript(result).then(result2 => {
+//         console.log(result2)
+//     })
 // })
+
+// tubeTopics.getTopicWeightsFromURL('https://www.youtube.com/watch?v=52ZlXsFJULI').then(function(result) {
+//     console.log(result)
+//     var jsonData = JSON.stringify(result);
+//     fs.writeFile("transcript.txt", jsonData, function(err) {
+//         if (err) {
+//             return console.log(err);
+//         }
+//     })
+// });
 
 // tubeTopics.getAudioSegmentParams('/Applications/packages/tubeTopics/sound.mp4').then((segments)=>{
 //   console.log(segments)
