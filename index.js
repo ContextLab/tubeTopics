@@ -165,6 +165,8 @@ var tubeTopics = function() {
                     if (a.start > b.start) return 1;
                     return 0;
                 });
+                // var ranks = timedTopics[0][weights].slice().map(function(v){ return sorted.indexOf(v)+1 });
+                // var filteredRanks = ranks.filter
                 resolve(timedTopics)
             });
         })
@@ -185,6 +187,21 @@ var tubeTopics = function() {
                 model = JSON.parse(data);
                 console.log('Model loaded successfully...')
                 resolve(model)
+            })
+        })
+    };
+
+    // load in the top words
+
+    function loadTopWords(modelPath) {
+        console.log('Loading in topic model...')
+        var topWordsPath = topWordsPath || 'model/topWords.json';
+        return new Promise(function(resolve, reject) {
+            fs.readFile(modelPath, 'utf8', function(err, data) {
+                if (err) throw err;
+                topWords = JSON.parse(data);
+                console.log('Model loaded successfully...')
+                resolve(topWords)
             })
         })
     };
