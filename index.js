@@ -35,7 +35,8 @@ var tubeTopics = function() {
                   })
               } else {
                   getYoutubeTranscript(result).then(transcript => {
-                      parseYoutubeTranscript(transcript)
+                      var x = parseYoutubeTranscript(transcript)
+                      console.log(x)
                   })
               }
           })
@@ -431,10 +432,12 @@ var tubeTopics = function() {
         var parsedObjects = parseToObjects(data);
         return resliceTranscript(parsedObjects, 15)
 
-        // private FUNCTIONS
+        // functions
         function resliceTranscript(parsedObjects, seglen) {
-            var lastTimePoint = parseTime(parsedObjects[parsedObjects.length-1].time)[1]
-            var segments = Array.apply(null, Array(Math.ceil(lastTimePoint/seglen)+1)).map(function (_, i) {return i*seglen;});
+            var lastTimePoint = parseTime(parsedObjects[parsedObjects.length - 1].time)[1]
+            var segments = Array.apply(null, Array(Math.ceil(lastTimePoint / seglen) + 1)).map(function(_, i) {
+                return i * seglen;
+            });
 
             var reslicedSegments = segments.map((segment, idx) => {
                 return {
@@ -443,7 +446,7 @@ var tubeTopics = function() {
                     text: []
                 }
             });
-            
+
             reslicedSegments.forEach((segment, idx) => {
                 // if the segment falls within the resliced segment range or if the segment falls mostly within the resliced segment range
                 var inRangeObjects = parsedObjects.filter(item => {
@@ -456,25 +459,24 @@ var tubeTopics = function() {
                 });
                 segment.text = segment.text.join(' ')
             });
-            console.log(reslicedSegments)
+            // console.log(reslicedSegments)
+            return reslicedSegments
+        };
 
-            function parseTime(date) {
-                var splitDate = date.split(' --> ')
-                var start = toSeconds(splitDate[0])
-                var end = toSeconds(splitDate[1])
-
-                return [start, end]
-
-                function toSeconds(datestr) {
-                    var datespl = datestr.split(':')
-                    var hourToSec = parseInt(datespl[0]) * 3600
-                    var minToSec = parseInt(datespl[1]) * 60
-                    var seconds = datespl[2].split(',')[0]
-                    return parseInt(hourToSec) + parseInt(minToSec) + parseInt(seconds)
-                }
-            }
-
+        function parseTime(date) {
+            var splitDate = date.split(' --> ')
+            var start = toSeconds(splitDate[0])
+            var end = toSeconds(splitDate[1])
+            return [start, end]
         }
+
+        function toSeconds(datestr) {
+            var datespl = datestr.split(':')
+            var hourToSec = parseInt(datespl[0]) * 3600
+            var minToSec = parseInt(datespl[1]) * 60
+            var seconds = datespl[2].split(',')[0]
+            return parseInt(hourToSec) + parseInt(minToSec) + parseInt(seconds)
+        };
 
         function parseToObjects(data) {
             var parsedTranscript = []
@@ -498,13 +500,13 @@ var tubeTopics = function() {
                 }
             })
             return parsedTranscript
-
-            function isInt(value) {
-                return !isNaN(value) &&
-                    parseInt(Number(value)) == value &&
-                    !isNaN(parseInt(value, 10));
-            }
         };
+
+        function isInt(value) {
+            return !isNaN(value) &&
+                parseInt(Number(value)) == value &&
+                !isNaN(parseInt(value, 10));
+        }
     };
 
     ////////////////////////////////////////////////////////////////////////////
@@ -513,10 +515,6 @@ var tubeTopics = function() {
 
     return {
         getTopicWeightsFromURL: getTopicWeightsFromURL,
-        getAudioSegmentParams: getAudioSegmentParams,
-        checkForTranscriptOnYoutube: checkForTranscriptOnYoutube,
-        getYoutubeTranscript: getYoutubeTranscript,
-        parseYoutubeTranscript: parseYoutubeTranscript,
     }
 }
 
