@@ -118,38 +118,39 @@ var tubeTopics = function() {
              * and send it to getTranscriptFromServer
              */
 
-            var start = data.start;
-            var dur = data.duration;
-            var tmpFile = temp.path({
-                suffix: '.flac'
-            });
+        var start = data.start;
+        var dur = data.duration;
+        var tmpFile = temp.path({
+            suffix: '.flac'
+        });
 
-            // Convert segment of audio file into .flac file
-            ffmpeg()
-                .on('error', function(err) {
-                    onfinish(err);
-                })
-                .on('end', function() {
-                    console.log('Finished processing: ', data.start)
-                    console.log('Getting transcript')
-                    getTranscript(tmpFile).then((transcript) => {
-                        computeTopicWeights(transcript, model).then((results) => {
-                            callback(null,{'weights': results.weights,
-                                           'start': start,
-                                           'dur': dur,
-                                           'transcript': results.transcript
-                            })
+        // Convert segment of audio file into .flac file
+        ffmpeg()
+            .on('error', function(err) {
+                onfinish(err);
+            })
+            .on('end', function() {
+                console.log('Finished processing: ', data.start)
+                console.log('Getting transcript')
+                getTranscript(tmpFile).then((transcript) => {
+                    computeTopicWeights(transcript, model).then((results) => {
+                        callback(null, {
+                            'weights': results.weights,
+                            'start': start,
+                            'dur': dur,
+                            'transcript': results.transcript
                         })
                     })
                 })
-                .input(file)
-                .setStartTime(start)
-                .duration(dur)
-                .output(tmpFile)
-                .audioFrequency(16000)
-                .audioChannels(1)
-                .toFormat('flac')
-                .run();
+            })
+            .input(file)
+            .setStartTime(start)
+            .duration(dur)
+            .output(tmpFile)
+            .audioFrequency(16000)
+            .audioChannels(1)
+            .toFormat('flac')
+            .run();
     }
 
     function getTopics(audioSegments) {
@@ -234,7 +235,10 @@ var tubeTopics = function() {
                 .map(function(sums, idx) {
                     return (math.exp(a[idx] + math.log(sums)) / topicsByWordsMtx['_data'].length).toFixed(8)
                 })
-            resolve({weights: topicVec, transcript: words})
+            resolve({
+                weights: topicVec,
+                transcript: words
+            })
         })
     }
 
@@ -298,7 +302,8 @@ var tubeTopics = function() {
             }
             if (authClient.createScopedRequired && authClient.createScopedRequired()) {
                 authClient = authClient.createScoped([
-                    'https://www.googleapis.com/auth/cloud-platform'
+                    'https://www.googleapis.com/auth/cloud-platform',
+                    'https://www.googleapis.com/auth/youtube.force-ssl'
                 ]);
             }
 
@@ -326,12 +331,104 @@ var tubeTopics = function() {
     };
 
     ////////////////////////////////////////////////////////////////////////////
+    // YOUTUBE CODE  ///////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+
+    function getYoutubeAuthClient() {
+        return new Promise((resolve, reject) => {
+            google.auth.getApplicationDefault(function(err, authClient) {
+                if (err) {
+                    return callback(err);
+                }
+                if (authClient.createScopedRequired && authClient.createScopedRequired()) {
+                    authClient = authClient.createScoped([
+                        'https://www.googleapis.com/auth/cloud-platform',
+                        'https://www.googleapis.com/auth/youtube.force-ssl'
+                    ]);
+                }
+                resolve(authClient);
+            });
+        })
+    };
+
+    function checkForTranscriptOnYoutube(url) {
+        return new Promise((resolve, reject) => {
+            getYoutubeAuthClient().then((authClient) => {
+
+                var youtube = google.youtube({
+                    version: 'v3',
+                    auth: authClient
+                });
+
+                // check to see if captions exist
+                youtube.captions.list({
+                    videoId: url.split('=')[1],
+                    part: ['snippet'],
+                    q: 'Node.js on Google Cloud'
+                }, function(err, data) {
+                    if (err) {
+                        console.error('Error: ' + err);
+                    }
+                    if (data) {
+                        console.log("Found transcript on Youtube")
+                        resolve(data)
+                    } else {
+                        resolve(null)
+                    }
+                })
+            })
+        })
+    };
+
+    // function prepareYoutubeRequest(captionIdList) {
+    //     var transcriptId = captionIdList.items.filter((transcript) => {
+    //         return transcript.snippet.language == 'en' && transcript.snippet.trackKind == 'standard'
+    //     })[0].id
+    //
+    //     var payload = {
+    //         id: transcriptId,
+    //         tlang: 'en'
+    //     }
+    //     return payload
+    // }
+
+
+    function getYoutubeTranscript(captionIdList) {
+        return new Promise((resolve, reject) => {
+            getYoutubeAuthClient().then((authClient) => {
+                var youtube = google.youtube({
+                    version: 'v3',
+                    auth: authClient
+                });
+                var transcriptId = captionIdList.items.filter((transcript) => {
+                    return transcript.snippet.language == 'en' && transcript.snippet.trackKind == 'standard'
+                })[0].id
+
+                var payload = {
+                    id: transcriptId,
+                    tlang: 'en'
+                }
+                youtube.captions.download(payload, (err, data) => {
+                    if (err) {
+                        console.error('Error: ' + err);
+                    }
+                    if (data) {
+                        resolve(data.split('\n'))
+                    }
+                })
+            })
+        })
+    };
+
+    ////////////////////////////////////////////////////////////////////////////
     // END USER API  ///////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
 
     return {
         getTopicWeightsFromURL: getTopicWeightsFromURL,
         getAudioSegmentParams: getAudioSegmentParams,
+        checkForTranscriptOnYoutube: checkForTranscriptOnYoutube,
+        getYoutubeTranscript: getYoutubeTranscript,
     }
 }
 
