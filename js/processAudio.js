@@ -31,14 +31,14 @@ module.exports = {
         })
     },
 
-    getAudioSegmentParams: function(file) {
+    getAudioSegmentParams: function(file,seglen) {
         console.log('Getting audio segment params...')
         return new Promise(function(resolve, reject) {
             ffmpeg.ffprobe(file, function(err, info) {
                 var audioSegments = []
                 var totalDuration = info.format.duration;
                 var segments = false
-                maxDuration = 15
+                maxDuration = seglen;
                 if (segments) {
                     for (var i = 0; i < segments.length; i++) {
                         var duration = (i == segments.length - 1) ? totalDuration - segments[i] : segments[i + 1] - segments[i];

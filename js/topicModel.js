@@ -5,18 +5,9 @@ module.exports = {
 
     loadModel: function(modelPath) {
         console.log('Loading in topic model...')
-        var modelPath = modelPath || 'model/topicModelDict.json';
-        return new Promise(function(resolve, reject) {
-            fs.readFile(modelPath, 'utf8', function(err, data) {
-                if (err) throw err;
-                model = JSON.parse(data);
-                console.log('Model loaded successfully...')
-                resolve(model)
-            })
-        })
+        model =  fs.readFileSync(modelPath, 'utf8');
+        return JSON.parse(model)
     },
-
-    // load in the top words
 
     loadTopWords: function(modelPath) {
         console.log('Loading in top words...')

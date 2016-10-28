@@ -63,13 +63,13 @@ module.exports = {
         })
     },
 
-    parseYoutubeTranscript: function(data) {
+    parseYoutubeTranscript: function(data, seglen) {
         if (data[0] == 1) {
             var parsedObjects = parseType1(data);
         } else {
             var parsedObjects = parseType2(data);
         }
-        return resliceTranscript(parsedObjects, 15)
+        return resliceTranscript(parsedObjects, seglen)
     }
 };
 
