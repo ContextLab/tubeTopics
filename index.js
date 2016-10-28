@@ -3,7 +3,7 @@ audioProcessor = require('./js/processAudio.js')
 topicModel = require('./js/topicModel.js')
 youtube = require('./js/youtube.js')
 
-var tubeTopics = function(params) {
+var tubeTopics = function() {
 
     var params = params || {};
     params.seglen = params.seglen || 15;
@@ -13,6 +13,12 @@ var tubeTopics = function(params) {
     ////////////////////////////////////////////////////////////////////////////
     // PUBLIC FUNCTIONS ////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
+
+    function setParams(vals) {
+        for (val in vals) {
+            params[val] = vals[val]
+        }
+    };
 
     // function to get topic weights from a youtube url
     function getTopicWeightsFromURL(url) {
@@ -44,7 +50,7 @@ var tubeTopics = function(params) {
     function getSegmentsViaGoogleSpeech(url) {
         return new Promise((resolve, reject) => {
             audioProcessor.downloadAudio(url).then((audioFilePath) => {
-                audioProcessor.getAudioSegmentParams(audioFilePath,params.seglen).then((segmentParams) => {
+                audioProcessor.getAudioSegmentParams(audioFilePath, params.seglen).then((segmentParams) => {
                     audioProcessor.decodeSpeech(segmentParams).then((result) => {
                         resolve(result)
                     })
@@ -59,10 +65,10 @@ var tubeTopics = function(params) {
                 if (transcript.slice(0, 3) == 'The') {
                     console.log("You don't have the right permissions to download this file.  Reverting back to Google Speech...")
                     getSegmentsViaGoogleSpeech(url).then(segments => {
-                          resolve(segments)
+                        resolve(segments)
                     })
                 } else {
-                    var segments = youtube.parseYoutubeTranscript(transcript,params.seglen)
+                    var segments = youtube.parseYoutubeTranscript(transcript, params.seglen)
                     resolve(segments)
                 }
             })
@@ -74,6 +80,7 @@ var tubeTopics = function(params) {
     ////////////////////////////////////////////////////////////////////////////
 
     return {
+        setParams: setParams,
         getTopicWeightsFromURL: getTopicWeightsFromURL,
     }
 }
