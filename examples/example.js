@@ -2,7 +2,8 @@ var fs = require('fs');
 var tubeTopics = require('../index.js');
 
 var params = {
-  seglen: 30
+  segLength: 30,
+  modelLocation: 'model/topicModelDict.json'
 }
 tubeTopics.setParams(params);
 

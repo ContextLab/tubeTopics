@@ -5,10 +5,11 @@ youtube = require('./js/youtube.js')
 
 var tubeTopics = function() {
 
-    var params = params || {};
-    params.seglen = params.seglen || 15;
-    params.modelPath = params.modelPath || 'model/topicModelDict.json';
-    params.model = topicModel.loadModel(params.modelPath);
+    // default settings
+    var params = {};
+    params.segLength = 15;
+    params.modelLocation = 'model/topicModelDict.json';
+    params.model = topicModel.loadModel(params.modelLocation);
 
     ////////////////////////////////////////////////////////////////////////////
     // PUBLIC FUNCTIONS ////////////////////////////////////////////////////////
@@ -17,6 +18,10 @@ var tubeTopics = function() {
     function setParams(vals) {
         for (val in vals) {
             params[val] = vals[val]
+        }
+        if ('modelLocation' in vals){
+          params.model = topicModel.loadModel(vals['modelLocation']);
+          console.log('Loaded in custom model at: ', params.modelLocation)
         }
     };
 
@@ -50,7 +55,7 @@ var tubeTopics = function() {
     function getSegmentsViaGoogleSpeech(url) {
         return new Promise((resolve, reject) => {
             audioProcessor.downloadAudio(url).then((audioFilePath) => {
-                audioProcessor.getAudioSegmentParams(audioFilePath, params.seglen).then((segmentParams) => {
+                audioProcessor.getAudioSegmentParams(audioFilePath, params.segLength).then((segmentParams) => {
                     audioProcessor.decodeSpeech(segmentParams).then((result) => {
                         resolve(result)
                     })
@@ -68,7 +73,7 @@ var tubeTopics = function() {
                         resolve(segments)
                     })
                 } else {
-                    var segments = youtube.parseYoutubeTranscript(transcript, params.seglen)
+                    var segments = youtube.parseYoutubeTranscript(transcript, params.segLength)
                     resolve(segments)
                 }
             })

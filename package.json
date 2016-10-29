@@ -1,5 +1,5 @@
 {
-  "name": "youtube-lda",
+  "name": "tubeTopics",
   "version": "1.0.0",
   "description": "Creates a topic model from a YouTube audio track using Latent Dirichlet Allocation (LDA) and Speech-to-text",
   "main": "index.js",
@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/andrewheusser/youtube-lda.git"
+    "url": "git+https://github.com/ContextLab/tubeTopics.git"
   },
   "author": "Andy Heusser",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/andrewheusser/youtube-lda/issues"
+    "url": "https://github.com/ContextLab/tubeTopics/issues"
   },
-  "homepage": "https://github.com/andrewheusser/youtube-lda#readme",
+  "homepage": "https://github.com/ContextLab/tubeTopics#readme",
   "dependencies": {
     "fs": "0.0.1-security",
     "googleapis": "^14.0.0",
